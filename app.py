@@ -58,7 +58,6 @@ st.set_page_config(
     layout="centered"
 )
 
-# Consolidated layout overrides. Includes dynamic visibility flags to handle post-upload state safely without crashes.
 st.markdown("""
     <style>
         .main-title {
@@ -119,11 +118,6 @@ st.markdown("""
             visibility: hidden !important;
             pointer-events: none !important;
         }
-        
-        /* Safe structural class to toggle visibility post-upload without interrupting server processes */
-        .hide-element {
-            display: none !important;
-        }
     </style>
     
     <h1 class="main-title">Rwanda Coordinate Translation Engine</h1>
@@ -132,7 +126,7 @@ st.markdown("""
 
 
 # ==============================================================================
-# SECTION 3: MAIN APP LAYOUT (PRE-RENDERED COMPONENT ARCHITECTURE)
+# SECTION 3: MAIN APP LAYOUT (CACHED TEMPLATE FORMAT)
 # ==============================================================================
 st.markdown("### 📋 Required Spreadsheet Format Structure")
 st.write("Your uploaded Excel file must strictly match this layout:")
@@ -168,25 +162,31 @@ st.download_button(
 
 st.markdown("---")
 
-# Conditional tracking variables to manage server execution cycles cleanly
 uploaded_file = st.file_uploader("", type=["xlsx"], accept_multiple_files=False)
 
-# Render upload text block conditionally using standard structural layout parameters
 if uploaded_file is None:
-    st.markdown('<p class="upload-instruction">DRAG AND DROP OR CLICK TO UPLOAD EXCEL FILE</p>', unsafe_allow_html=True)
+    st.markdown('<p class="upload-instruction">CLICK BELOW TO UPLOAD EXCEL FILE</p>', unsafe_allow_html=True)
 
 
 # ==============================================================================
-# SECTION 4: ISOLATED BATCH CONVERSION PROCESSING PIPELINE
+# SECTION 4: BATCH DATA EXECUTION PIPELINE
 # ==============================================================================
 if uploaded_file is not None:
+    # Safely inject hiding style rules via proper Streamlit Markdown method
+    st.markdown("""
+        <style>
+            [data-testid="stFileUploadDropzone"], .stFileUploader {
+                display: none !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
     st.info("ℹ️ File loaded successfully. Click the button below to process the conversion.")
     
     if st.button("Convert", type="primary", use_container_width=True):
         start_time = time.time()
         
         try:
-            # Memory-isolated internal data stream handler
             with io.BytesIO(uploaded_file.read()) as file_stream:
                 data = pd.read_excel(file_stream)
             
@@ -210,7 +210,6 @@ if uploaded_file is not None:
                     station = row[station_col] if station_col else "Unknown"
                     
                     try:
-                        # Drop row evaluations if values cannot be mathematically typed
                         if pd.isna(row[easting_col]) or pd.isna(row[northing_col]):
                             continue
                         E = float(row[easting_col])
