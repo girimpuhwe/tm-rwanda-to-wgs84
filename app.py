@@ -17,11 +17,14 @@ N0 = 5000000.0
 k0 = 0.9996
 lam0 = math.radians(30.0)
 
+# INVERSE TM RWANDA -> WGS84
 def tm_to_geographic(E, N):
     x = E - E0
     y = N - N0
     M = y / k0
-    mu = M / (a * (1 - e2/4 - 3*e2**2/64 - 5*e2**3/256))
+    mu = M / (
+        a * (1 - e2/4 - 3*e2**2/64 - 5*e2**3/256)
+    )
     e1 = (1 - math.sqrt(1-e2)) / (1 + math.sqrt(1-e2))
     phi1 = (
         mu
@@ -30,26 +33,43 @@ def tm_to_geographic(E, N):
         + (151*e1**3/96) * math.sin(6*mu)
         + (1097*e1**4/512) * math.sin(8*mu)
     )
-    N1 = a / math.sqrt(1 - e2 * math.sin(phi1)**2)
-    R1 = (a*(1-e2) / (1-e2*math.sin(phi1)**2)**1.5)
+    N1 = a / math.sqrt(
+        1 - e2 * math.sin(phi1)**2
+    )
+    R1 = (
+        a*(1-e2)
+        /
+        (1-e2*math.sin(phi1)**2)**1.5
+    )
     T1 = math.tan(phi1)**2
     C1 = ep2 * math.cos(phi1)**2
     D = x / N1
-    lat = phi1 - (N1 * math.tan(phi1) / R1) * (
+    lat = phi1 - (
+        N1 * math.tan(phi1) / R1
+    ) * (
         D**2/2
-        - (5+3*T1+10*C1-4*C1**2-9*ep2) * D**4/24
-        + (61+90*T1+298*C1+45*T1**2 - 252*ep2-3*C1**2) * D**6/720
+        -
+        (5+3*T1+10*C1-4*C1**2-9*ep2)
+        *D**4/24
+        +
+        (61+90*T1+298*C1+45*T1**2
+         -252*ep2-3*C1**2)
+        *D**6/720
     )
     lon = lam0 + (
         D
-        - (1+2*T1+C1)*D**3/6
-        + (5-2*C1+28*T1-3*C1**2 + 8*ep2+24*T1**2) * D**5/120
+        -
+        (1+2*T1+C1)*D**3/6
+        +
+        (5-2*C1+28*T1-3*C1**2
+         +8*ep2+24*T1**2)
+        *D**5/120
     ) / math.cos(phi1)
     return math.degrees(lat), math.degrees(lon)
 
 
 # ==============================================================================
-# SECTION 2: FRONTEND CONFIGURATION & AGGRESSIVE CSS OVERRIDES
+# SECTION 2: FRONTEND CONFIGURATION & PROFESSIONAL CSS INJECTION
 # ==============================================================================
 st.set_page_config(
     page_title="Rwanda Geospatial Engine",
@@ -71,6 +91,8 @@ st.markdown("""
             color: #64748B !important;
             margin-bottom: 25px;
         }
+        
+        /* 1. Custom stylized uppercase typography block */
         .upload-instruction {
             font-size: 26px !important;
             font-weight: 800 !important;
@@ -80,6 +102,8 @@ st.markdown("""
             margin-top: 25px !important;
             letter-spacing: -0.5px;
         }
+        
+        /* 2. Resized compact upload box parameter constraints */
         .stFileUploader {
             border: 1px solid #E2E8F0 !important;
             border-radius: 8px !important;
@@ -89,7 +113,7 @@ st.markdown("""
             min-width: 160px !important;
         }
         
-        /* Disable drag and drop interactive states cleanly */
+        /* 3. Disables visual interactions / mouse drag and drop zones */
         [data-testid="stFileUploadDropzone"] {
             padding: 0px !important;
             border: none !important;
@@ -101,20 +125,21 @@ st.markdown("""
             pointer-events: auto !important;
         }
         
-        /* Strip secondary instructions and drag hints */
+        /* Hides helper titles and application limitations */
         [data-testid="stFileUploadDropzoneInstructions"],
         [data-testid="stFileUploadDropzone"] small,
         [data-testid="stFileUploadDropzone"] span,
         div[data-testid="stFileUploader"] section div div {
             display: none !important;
         }
+        
         [data-testid="stMetricValue"] {
             font-size: 24px !important;
             color: #0F766E !important;
             font-weight: 600;
         }
         
-        /* Suppress markdown header link attachment icons globally */
+        /* 4. Complete elimination of all markdown title link attachments */
         h1 a, h2 a, h3 a, h4 a, h5 a, h6 a, .stMarkdown a.header-anchor, a.header-anchor {
             display: none !important;
             visibility: hidden !important;
@@ -123,16 +148,17 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+
+# ==============================================================================
+# SECTION 3: MAIN APP LAYOUT (BATCH FILE UPLOAD & EXECUTION)
+# ==============================================================================
 st.markdown('<h1 class="main-title">Rwanda Coordinate Translation Engine</h1>', unsafe_allow_html=True)
 st.markdown('<p class="sub-title">Enterprise geodetic translation utility optimized for TM Rwanda (WGS84) vector alignment.</p>', unsafe_allow_html=True)
 
-
-# ==============================================================================
-# SECTION 3: MAIN APP LAYOUT (EXACT VISUAL REQUIREMENTS)
-# ==============================================================================
 st.markdown("### 📋 Required Spreadsheet Format Structure")
-st.write("Your uploaded Excel file must strictly match this layout:")
+st.write("Your uploaded Excel file columns must contain these keywords in the header row:")
 
+# Preview format setup with empty mock rows
 blueprint_df = pd.DataFrame({
     "STATIONS": ["ST1", "ST2", ".", "ST(n)"],
     "EASTING (E)": ["", "", "", ""],
@@ -142,22 +168,20 @@ blueprint_df = pd.DataFrame({
 })
 st.table(blueprint_df)
 
-@st.cache_data(show_spinner=False)
-def generate_static_template():
-    template_buffer = io.BytesIO()
-    with pd.ExcelWriter(template_buffer, engine='openpyxl') as writer:
-        pd.DataFrame({
-            "STATIONS": ["ST1", "ST2", ".", "ST(n)"],
-            "EASTING (E)": [None, None, None, None],
-            "NORTHING(N)": [None, None, None, None],
-            "HDOP (m)": [None, None, None, None],
-            "VDOP(m)": [None, None, None, None]
-        }).to_excel(writer, index=False)
-    return template_buffer.getvalue()
+# Downloadable spreadsheet layout template format builder
+template_buffer = io.BytesIO()
+with pd.ExcelWriter(template_buffer, engine='openpyxl') as writer:
+    pd.DataFrame({
+        "STATIONS": ["ST1", "ST2", ".", "ST(n)"],
+        "EASTING (E)": [None, None, None, None],
+        "NORTHING(N)": [None, None, None, None],
+        "HDOP (m)": [None, None, None, None],
+        "VDOP(m)": [None, None, None, None]
+    }).to_excel(writer, index=False)
 
 st.download_button(
     label="📥 Download Template Format",
-    data=generate_static_template(),
+    data=template_buffer.getvalue(),
     file_name="TM_Rwanda_Template_Format.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
@@ -169,15 +193,16 @@ uploaded_file = st.file_uploader("", type=["xlsx"], accept_multiple_files=False)
 
 
 # ==============================================================================
-# SECTION 4: INLINE STABLE CONVERSION LOGIC (BASELINE BACKEND METHOD)
+# SECTION 4: DYNAMIC UI & PROCESSING LOOP
 # ==============================================================================
 if uploaded_file is not None:
+    
     st.info("ℹ️ File loaded successfully. Click the button below to process the conversion.")
     
     if st.button("Convert", type="primary", use_container_width=True):
+        
         start = time.time()
         
-        # Read the spreadsheet file directly from the file wrapper baseline mechanism
         data = pd.read_excel(uploaded_file)
         data.columns = [str(col).strip() for col in data.columns]
         
@@ -188,9 +213,17 @@ if uploaded_file is not None:
         vdop_col = next((col for col in data.columns if 'VDOP' in col.upper()), None)
         
         if not easting_col or not northing_col:
-            st.error("🚨 Processing Error: File Structure Misaligned. Headers must contain EASTING and NORTHING keywords.")
+            st.error("🚨 Processing Error: File Structure Misaligned")
+            st.markdown("#### 🔍 Structural Audit Logs:")
+            st.markdown(f"""
+            * **Easting Column Target Status:** {"✅ Linked" if easting_col else "❌ MISSING OR MISSPELLED"}
+            * **Northing Column Target Status:** {"✅ Linked" if northing_col else "❌ MISSING OR MISSING"}
+            """)
+            st.info("💡 Modify your column headers so that they contain the words **EASTING** and **NORTHING**.")
+            st.write("**Headers found inside your file:**", list(data.columns))
         else:
             results = []
+            
             for _, row in data.iterrows():
                 station = row[station_col] if station_col else "Unknown"
                 
@@ -206,34 +239,38 @@ if uploaded_file is not None:
                 vdop_val = row[vdop_col] if vdop_col else 0.0
                 
                 lat, lon = tm_to_geographic(E, N)
-                results.append([station, E, N, round(lat, 8), round(lon, 8), hdop_val, vdop_val])
-                
-            if not results:
-                st.warning("⚠️ Data Insight: Valid coordinates could not be parsed from this spreadsheet.")
-            else:
-                output = pd.DataFrame(results, columns=[
-                    "Station", "Easting (m)", "Northing (m)", "Latitude", "Longitude", "HDOP (m)", "VDOP (m)"
+                results.append([
+                    station, E, N, round(lat, 8), round(lon, 8), hdop_val, vdop_val
                 ])
                 
-                exec_time = round(time.time() - start, 4)
-                st.success("🎉 TM RWANDA TO WGS84 COMPLETED SUCCESSFULLY")
-                
-                m_col1, m_col2, m_col3 = st.columns(3)
-                m_col1.metric(label="Calculated Nodes", value=f"{len(output)} Stations")
-                m_col2.metric(label="Reference Datum", value="WGS84 Sphere")
-                m_col3.metric(label="Execution Time", value=f"{exec_time} sec")
-                
-                # Render using the clean selection mode parameter to completely avoid sorting/filter menus
-                st.dataframe(output, use_container_width=True, selection_mode="none")
-                
-                buffer = io.BytesIO()
-                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                    output.to_excel(writer, index=False)
-                
-                st.download_button(
-                    label="📥 Download Converted TM_Rwanda_WGS84_Result.xlsx",
-                    data=buffer.getvalue(),
-                    file_name="TM_Rwanda_WGS84_Result.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
-                )
+            output = pd.DataFrame(results, columns=[
+                "Station", "Easting (m)", "Northing (m)", "Latitude", "Longitude", "HDOP (m)", "VDOP (m)"
+            ])
+            
+            end = time.time()
+            exec_time = round(end - start, 4)
+            
+            st.success("🎉 TM RWANDA TO WGS84 COMPLETED SUCCESSFULLY")
+            
+            m_col1, m_col2, m_col3 = st.columns(3)
+            with m_col1:
+                st.metric(label="Calculated Nodes", value=f"{len(output)} Stations")
+            with m_col2:
+                st.metric(label="Reference Datum", value="WGS84 Sphere")
+            with m_col3:
+                st.metric(label="Execution Time", value=f"{exec_time} sec")
+            
+            # Static dataframe rendering to prevent menu interactions or layout shifts
+            st.dataframe(output, use_container_width=True, selection_mode="none")
+            
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                output.to_excel(writer, index=False)
+            
+            st.download_button(
+                label="📥 Download Converted TM_Rwanda_WGS84_Result.xlsx",
+                data=buffer.getvalue(),
+                file_name="TM_Rwanda_WGS84_Result.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
