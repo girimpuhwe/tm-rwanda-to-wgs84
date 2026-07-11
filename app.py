@@ -172,7 +172,6 @@ if uploaded_file is None:
 # SECTION 4: BATCH DATA EXECUTION PIPELINE
 # ==============================================================================
 if uploaded_file is not None:
-    # Safely inject hiding style rules via proper Streamlit Markdown method
     st.markdown("""
         <style>
             [data-testid="stFileUploadDropzone"], .stFileUploader {
@@ -238,7 +237,13 @@ if uploaded_file is not None:
                     m_col2.metric(label="Reference Datum", value="WGS84 Sphere")
                     m_col3.metric(label="Execution Time", value=f"{exec_time} sec")
                     
-                    st.table(output)
+                    # Memory-safe dataframe render configuration to prevent cloud heap crashes.
+                    # Column options are turned off programmatically to guarantee a clean table representation.
+                    st.dataframe(
+                        output, 
+                        use_container_width=True,
+                        column_config={col: st.column_config.Column(disabled=True) for col in output.columns}
+                    )
                     
                     buffer = io.BytesIO()
                     with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
