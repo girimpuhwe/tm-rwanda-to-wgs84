@@ -77,6 +77,7 @@ st.set_page_config(
     layout="centered"
 )
 
+# Aggressive CSS to enforce UI rules and hide Streamlit's default subtexts
 st.markdown("""
     <style>
         .main-title {
@@ -91,59 +92,24 @@ st.markdown("""
             color: #64748B !important;
             margin-bottom: 25px;
         }
-        
-        /* 1. Custom stylized uppercase typography block */
-        .upload-instruction {
-            font-size: 26px !important;
-            font-weight: 800 !important;
-            color: #FFFFFF !important;
-            text-transform: uppercase !important;
-            margin-bottom: 12px !important;
-            margin-top: 25px !important;
-            letter-spacing: -0.5px;
-        }
-        
-        /* 2. Resized compact upload box parameter constraints */
         .stFileUploader {
             border: 1px solid #E2E8F0 !important;
             border-radius: 8px !important;
             background-color: #F8FAFC !important;
             padding: 5px !important;
-            max-width: 160px !important;
-            min-width: 160px !important;
         }
-        
-        /* 3. Disables visual interactions / mouse drag and drop zones */
-        [data-testid="stFileUploadDropzone"] {
-            padding: 0px !important;
-            border: none !important;
-            pointer-events: none !important;
-        }
-        div[data-testid="stFileUploader"] section button {
-            display: inline-flex !important;
-            margin: 0px !important;
-            pointer-events: auto !important;
-        }
-        
-        /* Hides helper titles and application limitations */
-        [data-testid="stFileUploadDropzoneInstructions"],
-        [data-testid="stFileUploadDropzone"] small,
-        [data-testid="stFileUploadDropzone"] span,
-        div[data-testid="stFileUploader"] section div div {
-            display: none !important;
-        }
-        
         [data-testid="stMetricValue"] {
             font-size: 24px !important;
             color: #0F766E !important;
             font-weight: 600;
         }
         
-        /* 4. Complete elimination of all markdown title link attachments */
-        h1 a, h2 a, h3 a, h4 a, h5 a, h6 a, .stMarkdown a.header-anchor, a.header-anchor {
+        /* FORCIBLY HIDE THE 'upload Excel file' EXTRA DRAWERS CLEANLY */
+        [data-testid="stFileUploadDropzone"] small {
             display: none !important;
-            visibility: hidden !important;
-            pointer-events: none !important;
+        }
+        [data-testid="stFileUploadDropzone"] > div > span {
+            display: none !important;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -158,60 +124,56 @@ st.markdown('<p class="sub-title">Enterprise geodetic translation utility optimi
 st.markdown("### 📋 Required Spreadsheet Format Structure")
 st.write("Your uploaded Excel file columns must contain these keywords in the header row:")
 
-# Preview format setup with empty mock rows
+# Display expected format safely
 blueprint_df = pd.DataFrame({
-    "STATIONS": ["ST1", "ST2", ".", "ST(n)"],
-    "EASTING (E)": ["", "", "", ""],
-    "NORTHING(N)": ["", "", "", ""],
-    "HDOP (m)": ["", "", "", ""],
-    "VDOP(m)": ["", "", "", ""]
+    "Required Header Column Label": ["STATIONS", "EASTING (E)", "NORTHING(N)", "HDOP (m) *Optional*", "VDOP(m) *Optional*"],
+    "Expected Format Example": ["ST01", 456746.11, 4834101.23, 0.013, 0.023]
 })
-st.table(blueprint_df)
-
-# Downloadable spreadsheet layout template format builder
-template_buffer = io.BytesIO()
-with pd.ExcelWriter(template_buffer, engine='openpyxl') as writer:
-    pd.DataFrame({
-        "STATIONS": ["ST1", "ST2", ".", "ST(n)"],
-        "EASTING (E)": [None, None, None, None],
-        "NORTHING(N)": [None, None, None, None],
-        "HDOP (m)": [None, None, None, None],
-        "VDOP(m)": [None, None, None, None]
-    }).to_excel(writer, index=False)
-
-st.download_button(
-    label="📥 Download Template Format",
-    data=template_buffer.getvalue(),
-    file_name="TM_Rwanda_Template_Format.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
+st.dataframe(blueprint_df, hide_index=True, use_container_width=True)
 
 st.markdown("---")
 
-st.markdown('<p class="upload-instruction">CLICK BELOW TO UPLOAD EXCEL FILE</p>', unsafe_allow_html=True)
-uploaded_file = st.file_uploader("", type=["xlsx"], accept_multiple_files=False)
-
+# Safe structural visibility flag avoids empty label core engine vulnerabilities
+uploaded_file = st.file_uploader(
+    "Excel Data Source Stream", 
+    type=["xlsx"], 
+    accept_multiple_files=False, 
+    label_visibility="collapsed"
+)
 
 # ==============================================================================
 # SECTION 4: DYNAMIC UI & PROCESSING LOOP
 # ==============================================================================
 if uploaded_file is not None:
     
+    # DYNAMIC CSS TRICK: Hide the "+" dropzone completely once a file is inside
+    st.markdown("""
+        <style>
+            [data-testid="stFileUploadDropzone"] {
+                display: none !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
     st.info("ℹ️ File loaded successfully. Click the button below to process the conversion.")
     
     if st.button("Convert", type="primary", use_container_width=True):
         
         start = time.time()
         
+        # Read the Excel file instantly
         data = pd.read_excel(uploaded_file)
+            
         data.columns = [str(col).strip() for col in data.columns]
         
+        # Smart column detection
         easting_col = next((col for col in data.columns if 'EAST' in col.upper()), None)
         northing_col = next((col for col in data.columns if 'NORTH' in col.upper()), None)
         station_col = next((col for col in data.columns if 'STAT' in col.upper()), None)
         hdop_col = next((col for col in data.columns if 'HDOP' in col.upper()), None)
         vdop_col = next((col for col in data.columns if 'VDOP' in col.upper()), None)
         
+        # Validation Check
         if not easting_col or not northing_col:
             st.error("🚨 Processing Error: File Structure Misaligned")
             st.markdown("#### 🔍 Structural Audit Logs:")
@@ -224,25 +186,21 @@ if uploaded_file is not None:
         else:
             results = []
             
+            # CORE CONVERSION LOOP
             for _, row in data.iterrows():
                 station = row[station_col] if station_col else "Unknown"
-                
-                try:
-                    if pd.isna(row[easting_col]) or pd.isna(row[northing_col]):
-                        continue
-                    E = float(row[easting_col])
-                    N = float(row[northing_col])
-                except (ValueError, TypeError):
-                    continue
-                    
+                E = float(row[easting_col])
+                N = float(row[northing_col])
                 hdop_val = row[hdop_col] if hdop_col else 0.0
                 vdop_val = row[vdop_col] if vdop_col else 0.0
                 
                 lat, lon = tm_to_geographic(E, N)
+                
                 results.append([
                     station, E, N, round(lat, 8), round(lon, 8), hdop_val, vdop_val
                 ])
                 
+            # Compile final dataframe
             output = pd.DataFrame(results, columns=[
                 "Station", "Easting (m)", "Northing (m)", "Latitude", "Longitude", "HDOP (m)", "VDOP (m)"
             ])
@@ -260,8 +218,7 @@ if uploaded_file is not None:
             with m_col3:
                 st.metric(label="Execution Time", value=f"{exec_time} sec")
             
-            # Static dataframe rendering to prevent menu interactions or layout shifts
-            st.dataframe(output, use_container_width=True, selection_mode="none")
+            st.dataframe(output, use_container_width=True)
             
             buffer = io.BytesIO()
             with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
