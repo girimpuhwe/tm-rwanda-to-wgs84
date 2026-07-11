@@ -162,31 +162,35 @@ st.download_button(
 
 st.markdown("---")
 
-uploaded_file = st.file_uploader("", type=["xlsx"], accept_multiple_files=False)
+# Initialize state memory pipelines to isolate data from cloud refresh crashes
+if 'file_bytes' not in st.session_state:
+    st.session_state.file_bytes = None
+if 'output_df' not in st.session_state:
+    st.session_state.output_df = None
+if 'metrics_data' not in st.session_state:
+    st.session_state.metrics_data = None
 
-if uploaded_file is None:
+# Step 1: Handle File Upload State
+if st.session_state.file_bytes is None:
     st.markdown('<p class="upload-instruction">CLICK BELOW TO UPLOAD EXCEL FILE</p>', unsafe_allow_html=True)
+    uploaded_file = st.file_uploader("", type=["xlsx"], accept_multiple_files=False)
+    if uploaded_file is not None:
+        st.session_state.file_bytes = uploaded_file.read()
+        st.rerun()
 
 
 # ==============================================================================
-# SECTION 4: BATCH DATA EXECUTION PIPELINE
+# SECTION 4: BATCH DATA EXECUTION PIPELINE (CLOUD STATE PROOF)
 # ==============================================================================
-if uploaded_file is not None:
-    st.markdown("""
-        <style>
-            [data-testid="stFileUploadDropzone"], .stFileUploader {
-                display: none !important;
-            }
-        </style>
-    """, unsafe_allow_html=True)
-
+if st.session_state.file_bytes is not None and st.session_state.output_df is None:
     st.info("ℹ️ File loaded successfully. Click the button below to process the conversion.")
     
     if st.button("Convert", type="primary", use_container_width=True):
         start_time = time.time()
         
         try:
-            with io.BytesIO(uploaded_file.read()) as file_stream:
+            # Memory-isolated internal data stream handler
+            with io.BytesIO(st.session_state.file_bytes) as file_stream:
                 data = pd.read_excel(file_stream)
             
             data.columns = [str(col).strip() for col in data.columns]
@@ -198,11 +202,8 @@ if uploaded_file is not None:
             vdop_col = next((col for col in data.columns if 'VDOP' in col.upper()), None)
             
             if not easting_col or not northing_col:
-                st.error("🚨 Processing Error: File Structure Misaligned")
-                st.markdown(f"""
-                * **Easting Column Target Status:** {"✅ Linked" if easting_col else "❌ MISSING OR MISSPELLED"}
-                * **Northing Column Target Status:** {"✅ Linked" if northing_col else "❌ MISSING OR MISSING"}
-                """)
+                st.error("🚨 Processing Error: File Structure Misaligned. Columns must contain 'EASTING' and 'NORTHING'.")
+                st.session_state.file_bytes = None  # Clear broken state data
             else:
                 results = []
                 for _, row in data.iterrows():
@@ -223,38 +224,60 @@ if uploaded_file is not None:
                     results.append([station, E, N, round(lat, 8), round(lon, 8), hdop_val, vdop_val])
                     
                 if not results:
-                    st.warning("⚠️ Data Insight: Valid coordinates could not be detected inside the file.")
+                    st.warning("⚠️ Data Insight: Valid numeric coordinates could not be processed inside the file.")
+                    st.session_state.file_bytes = None
                 else:
                     output = pd.DataFrame(results, columns=[
                         "Station", "Easting (m)", "Northing (m)", "Latitude", "Longitude", "HDOP (m)", "VDOP (m)"
                     ])
                     
-                    exec_time = round(time.time() - start_time, 4)
-                    st.success("🎉 TM RWANDA TO WGS84 COMPLETED SUCCESSFULLY")
+                    # Store variables globally into the safe state pipeline memory
+                    st.session_state.output_df = output
+                    st.session_state.metrics_data = {
+                        "count": len(output),
+                        "runtime": round(time.time() - start_time, 4)
+                    }
+                    st.rerun()
                     
-                    m_col1, m_col2, m_col3 = st.columns(3)
-                    m_col1.metric(label="Calculated Nodes", value=f"{len(output)} Stations")
-                    m_col2.metric(label="Reference Datum", value="WGS84 Sphere")
-                    m_col3.metric(label="Execution Time", value=f"{exec_time} sec")
-                    
-                    # Memory-safe dataframe render configuration to prevent cloud heap crashes.
-                    # Column options are turned off programmatically to guarantee a clean table representation.
-                    st.dataframe(
-                        output, 
-                        use_container_width=True,
-                        column_config={col: st.column_config.Column(disabled=True) for col in output.columns}
-                    )
-                    
-                    buffer = io.BytesIO()
-                    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                        output.to_excel(writer, index=False)
-                    
-                    st.download_button(
-                        label="📥 Download Converted TM_Rwanda_WGS84_Result.xlsx",
-                        data=buffer.getvalue(),
-                        file_name="TM_Rwanda_WGS84_Result.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        use_container_width=True
-                    )
         except Exception as container_exception:
             st.error(f"🚨 Cloud Container Operational Error: {str(container_exception)}")
+            st.session_state.file_bytes = None
+
+
+# ==============================================================================
+# SECTION 5: STATIC OUTPUT RENDERING (ZERO MEMORY BLOAT SELECTORS)
+# ==============================================================================
+if st.session_state.output_df is not None:
+    st.success("🎉 TM RWANDA TO WGS84 COMPLETED SUCCESSFULLY")
+    
+    m_data = st.session_state.metrics_data
+    m_col1, m_col2, m_col3 = st.columns(3)
+    m_col1.metric(label="Calculated Nodes", value=f"{m_data['count']} Stations")
+    m_col2.metric(label="Reference Datum", value="WGS84 Sphere")
+    m_col3.metric(label="Execution Time", value=f"{m_data['runtime']} sec")
+    
+    # Renders the large table data safely without memory blowups or sorting buttons
+    st.dataframe(
+        st.session_state.output_df, 
+        use_container_width=True,
+        column_config={col: st.column_config.Column(disabled=True) for col in st.session_state.output_df.columns}
+    )
+    
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+        st.session_state.output_df.to_excel(writer, index=False)
+    
+    st.download_button(
+        label="📥 Download Converted TM_Rwanda_WGS84_Result.xlsx",
+        data=buffer.getvalue(),
+        file_name="TM_Rwanda_WGS84_Result.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
+    
+    # State reset key to restart loop process cleanly
+    if st.button("🔄 Clear and Convert Another File", use_container_width=True):
+        st.session_state.file_bytes = None
+        st.session_state.output_df = None
+        st.session_state.metrics_data = None
+        st.rerun()
