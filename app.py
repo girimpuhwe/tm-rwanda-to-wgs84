@@ -5,7 +5,7 @@ import io
 import time
 
 # ==============================================================================
-# SECTION 1: TM RWANDA PARAMETERS (WGS84) & CACHED MATH BACKEND
+# SECTION 1: TM RWANDA PARAMETERS (WGS84) & EXACT MATH BACKEND
 # ==============================================================================
 a = 6378137.0
 f = 1 / 298.257223563
@@ -17,7 +17,6 @@ N0 = 5000000.0
 k0 = 0.9996
 lam0 = math.radians(30.0)
 
-@st.cache_data(show_spinner=False)
 def tm_to_geographic(E, N):
     x = E - E0
     y = N - N0
@@ -50,7 +49,7 @@ def tm_to_geographic(E, N):
 
 
 # ==============================================================================
-# SECTION 2: SINGLE-PASS STATIC FRONTEND CONFIGURATION & CSS
+# SECTION 2: FRONTEND CONFIGURATION & AGGRESSIVE CSS OVERRIDES
 # ==============================================================================
 st.set_page_config(
     page_title="Rwanda Geospatial Engine",
@@ -90,6 +89,7 @@ st.markdown("""
             min-width: 160px !important;
         }
         
+        /* Disable drag and drop interactive states cleanly */
         [data-testid="stFileUploadDropzone"] {
             padding: 0px !important;
             border: none !important;
@@ -101,6 +101,7 @@ st.markdown("""
             pointer-events: auto !important;
         }
         
+        /* Strip secondary instructions and drag hints */
         [data-testid="stFileUploadDropzoneInstructions"],
         [data-testid="stFileUploadDropzone"] small,
         [data-testid="stFileUploadDropzone"] span,
@@ -113,20 +114,21 @@ st.markdown("""
             font-weight: 600;
         }
         
+        /* Suppress markdown header link attachment icons globally */
         h1 a, h2 a, h3 a, h4 a, h5 a, h6 a, .stMarkdown a.header-anchor, a.header-anchor {
             display: none !important;
             visibility: hidden !important;
             pointer-events: none !important;
         }
     </style>
-    
-    <h1 class="main-title">Rwanda Coordinate Translation Engine</h1>
-    <p class="sub-title">Enterprise geodetic translation utility optimized for TM Rwanda (WGS84) vector alignment.</p>
 """, unsafe_allow_html=True)
+
+st.markdown('<h1 class="main-title">Rwanda Coordinate Translation Engine</h1>', unsafe_allow_html=True)
+st.markdown('<p class="sub-title">Enterprise geodetic translation utility optimized for TM Rwanda (WGS84) vector alignment.</p>', unsafe_allow_html=True)
 
 
 # ==============================================================================
-# SECTION 3: MAIN APP LAYOUT (CACHED TEMPLATE FORMAT)
+# SECTION 3: MAIN APP LAYOUT (EXACT VISUAL REQUIREMENTS)
 # ==============================================================================
 st.markdown("### 📋 Required Spreadsheet Format Structure")
 st.write("Your uploaded Excel file must strictly match this layout:")
@@ -162,126 +164,76 @@ st.download_button(
 
 st.markdown("---")
 
-# Session State Initialization Matrix
-if 'file_bytes' not in st.session_state:
-    st.session_state.file_bytes = None
-if 'output_df' not in st.session_state:
-    st.session_state.output_df = None
-if 'metrics_data' not in st.session_state:
-    st.session_state.metrics_data = None
-
-# Using static placeholders to securely toggle UI views without throwing script compilation disconnects
-widget_layout_slot = st.empty()
-
-if st.session_state.file_bytes is None:
-    with widget_layout_slot.container():
-        st.markdown('<p class="upload-instruction">CLICK BELOW TO UPLOAD EXCEL FILE</p>', unsafe_allow_html=True)
-        uploaded_file = st.file_uploader("", type=["xlsx"], accept_multiple_files=False)
-        if uploaded_file is not None:
-            st.session_state.file_bytes = uploaded_file.read()
-            st.rerun()
+st.markdown('<p class="upload-instruction">CLICK BELOW TO UPLOAD EXCEL FILE</p>', unsafe_allow_html=True)
+uploaded_file = st.file_uploader("", type=["xlsx"], accept_multiple_files=False)
 
 
 # ==============================================================================
-# SECTION 4: BATCH DATA EXECUTION PIPELINE (STABLE CONTAINER IMPLEMENTATION)
+# SECTION 4: INLINE STABLE CONVERSION LOGIC (BASELINE BACKEND METHOD)
 # ==============================================================================
-if st.session_state.file_bytes is not None and st.session_state.output_df is None:
-    widget_layout_slot.empty()  # Safely wipe the upload view from layout slot
-    
+if uploaded_file is not None:
     st.info("ℹ️ File loaded successfully. Click the button below to process the conversion.")
     
     if st.button("Convert", type="primary", use_container_width=True):
-        start_time = time.time()
+        start = time.time()
         
-        try:
-            # Memory-isolated streaming pipeline
-            with io.BytesIO(st.session_state.file_bytes) as file_stream:
-                data = pd.read_excel(file_stream)
-            
-            data.columns = [str(col).strip() for col in data.columns]
-            
-            easting_col = next((col for col in data.columns if 'EAST' in col.upper()), None)
-            northing_col = next((col for col in data.columns if 'NORTH' in col.upper()), None)
-            station_col = next((col for col in data.columns if 'STAT' in col.upper()), None)
-            hdop_col = next((col for col in data.columns if 'HDOP' in col.upper()), None)
-            vdop_col = next((col for col in data.columns if 'VDOP' in col.upper()), None)
-            
-            if not easting_col or not northing_col:
-                st.error("🚨 Processing Error: File Structure Misaligned. Columns must contain 'EASTING' and 'NORTHING'.")
-                st.session_state.file_bytes = None  
-            else:
-                results = []
-                for _, row in data.iterrows():
-                    station = row[station_col] if station_col else "Unknown"
-                    
-                    try:
-                        if pd.isna(row[easting_col]) or pd.isna(row[northing_col]):
-                            continue
-                        E = float(row[easting_col])
-                        N = float(row[northing_col])
-                    except (ValueError, TypeError):
+        # Read the spreadsheet file directly from the file wrapper baseline mechanism
+        data = pd.read_excel(uploaded_file)
+        data.columns = [str(col).strip() for col in data.columns]
+        
+        easting_col = next((col for col in data.columns if 'EAST' in col.upper()), None)
+        northing_col = next((col for col in data.columns if 'NORTH' in col.upper()), None)
+        station_col = next((col for col in data.columns if 'STAT' in col.upper()), None)
+        hdop_col = next((col for col in data.columns if 'HDOP' in col.upper()), None)
+        vdop_col = next((col for col in data.columns if 'VDOP' in col.upper()), None)
+        
+        if not easting_col or not northing_col:
+            st.error("🚨 Processing Error: File Structure Misaligned. Headers must contain EASTING and NORTHING keywords.")
+        else:
+            results = []
+            for _, row in data.iterrows():
+                station = row[station_col] if station_col else "Unknown"
+                
+                try:
+                    if pd.isna(row[easting_col]) or pd.isna(row[northing_col]):
                         continue
-                        
-                    hdop_val = row[hdop_col] if hdop_col else 0.0
-                    vdop_val = row[vdop_col] if vdop_col else 0.0
+                    E = float(row[easting_col])
+                    N = float(row[northing_col])
+                except (ValueError, TypeError):
+                    continue
                     
-                    lat, lon = tm_to_geographic(E, N)
-                    results.append([station, E, N, round(lat, 8), round(lon, 8), hdop_val, vdop_val])
-                    
-                if not results:
-                    st.warning("⚠️ Data Insight: Valid coordinates could not be processed inside the file.")
-                    st.session_state.file_bytes = None
-                else:
-                    output = pd.DataFrame(results, columns=[
-                        "Station", "Easting (m)", "Northing (m)", "Latitude", "Longitude", "HDOP (m)", "VDOP (m)"
-                    ])
-                    
-                    st.session_state.output_df = output
-                    st.session_state.metrics_data = {
-                        "count": len(output),
-                        "runtime": round(time.time() - start_time, 4)
-                    }
-                    st.rerun()
-                    
-        except Exception as container_exception:
-            st.error(f"🚨 Cloud Container Operational Error: {str(container_exception)}")
-            st.session_state.file_bytes = None
-
-
-# ==============================================================================
-# SECTION 5: PERSISTED STATE OUTPUT RENDERING
-# ==============================================================================
-if st.session_state.output_df is not None:
-    widget_layout_slot.empty()
-    st.success("🎉 TM RWANDA TO WGS84 COMPLETED SUCCESSFULLY")
-    
-    m_data = st.session_state.metrics_data
-    m_col1, m_col2, m_col3 = st.columns(3)
-    m_col1.metric(label="Calculated Nodes", value=f"{m_data['count']} Stations")
-    m_col2.metric(label="Reference Datum", value="WGS84 Sphere")
-    m_col3.metric(label="Execution Time", value=f"{m_data['runtime']} sec")
-    
-    # Selection mode is locked to none to completely block structural changes or menus
-    st.dataframe(
-        st.session_state.output_df, 
-        use_container_width=True,
-        selection_mode="none"
-    )
-    
-    buffer = io.BytesIO()
-    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-        st.session_state.output_df.to_excel(writer, index=False)
-    
-    st.download_button(
-        label="📥 Download Converted TM_Rwanda_WGS84_Result.xlsx",
-        data=buffer.getvalue(),
-        file_name="TM_Rwanda_WGS84_Result.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        use_container_width=True
-    )
-    
-    if st.button("🔄 Clear and Convert Another File", use_container_width=True):
-        st.session_state.file_bytes = None
-        st.session_state.output_df = None
-        st.session_state.metrics_data = None
-        st.rerun()
+                hdop_val = row[hdop_col] if hdop_col else 0.0
+                vdop_val = row[vdop_col] if vdop_col else 0.0
+                
+                lat, lon = tm_to_geographic(E, N)
+                results.append([station, E, N, round(lat, 8), round(lon, 8), hdop_val, vdop_val])
+                
+            if not results:
+                st.warning("⚠️ Data Insight: Valid coordinates could not be parsed from this spreadsheet.")
+            else:
+                output = pd.DataFrame(results, columns=[
+                    "Station", "Easting (m)", "Northing (m)", "Latitude", "Longitude", "HDOP (m)", "VDOP (m)"
+                ])
+                
+                exec_time = round(time.time() - start, 4)
+                st.success("🎉 TM RWANDA TO WGS84 COMPLETED SUCCESSFULLY")
+                
+                m_col1, m_col2, m_col3 = st.columns(3)
+                m_col1.metric(label="Calculated Nodes", value=f"{len(output)} Stations")
+                m_col2.metric(label="Reference Datum", value="WGS84 Sphere")
+                m_col3.metric(label="Execution Time", value=f"{exec_time} sec")
+                
+                # Render using the clean selection mode parameter to completely avoid sorting/filter menus
+                st.dataframe(output, use_container_width=True, selection_mode="none")
+                
+                buffer = io.BytesIO()
+                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                    output.to_excel(writer, index=False)
+                
+                st.download_button(
+                    label="📥 Download Converted TM_Rwanda_WGS84_Result.xlsx",
+                    data=buffer.getvalue(),
+                    file_name="TM_Rwanda_WGS84_Result.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
